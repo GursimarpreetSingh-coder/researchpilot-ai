@@ -37,7 +37,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-
+import { useTheme } from "@/components/ThemeProvider";
 const API =
   process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
