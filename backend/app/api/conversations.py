@@ -25,7 +25,24 @@ def get_db():
         yield db
     finally:
         db.close()
+def get_or_create_user(db: Session, user_id: UUID):
+    user = db.get(User, user_id)
 
+    if user:
+        return user
+
+    user = User(
+        id=user_id,
+        name="Researcher",
+        email=f"{user_id}@researchpilot.local",
+        password_hash="local-demo-user",
+    )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return user
 
 # ============================================================
 # REQUEST MODELS
@@ -45,19 +62,12 @@ class CreateMessageRequest(BaseModel):
 # ============================================================
 # CREATE CONVERSATION
 # ============================================================
-
 @router.post("")
 def create_conversation(
     request: CreateConversationRequest,
     db: Session = Depends(get_db),
 ):
-    user = db.get(User, request.user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found.",
-        )
+    user = get_or_create_user(db, request.user_id)
 
     if request.paper_id:
         paper = db.get(Paper, request.paper_id)
@@ -67,7 +77,6 @@ def create_conversation(
                 status_code=404,
                 detail="Paper not found.",
             )
-
     conversation = Conversation(
         user_id=request.user_id,
         paper_id=request.paper_id,
@@ -101,13 +110,7 @@ def list_conversations(
     user_id: UUID,
     db: Session = Depends(get_db),
 ):
-    user = db.get(User, user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found.",
-        )
+user = get_or_create_user(db, user_id)
 
     conversations = (
         db.query(Conversation)
