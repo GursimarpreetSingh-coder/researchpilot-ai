@@ -25,6 +25,9 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+
 def get_or_create_user(db: Session, user_id: UUID):
     user = db.get(User, user_id)
 
