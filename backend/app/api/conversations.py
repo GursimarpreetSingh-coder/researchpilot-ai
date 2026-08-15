@@ -110,7 +110,7 @@ def list_conversations(
     user_id: UUID,
     db: Session = Depends(get_db),
 ):
-user = get_or_create_user(db, user_id)
+    user = get_or_create_user(db, user_id)
 
     conversations = (
         db.query(Conversation)
