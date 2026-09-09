@@ -46,8 +46,8 @@ export const metadata: Metadata = {
       "Your intelligent AI-powered research workspace.",
   },
   icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-icon.png",
+    icon: "/researchpilot-logo.svg",
+    apple: "/researchpilot-logo.svg",
   },
   manifest: "/manifest.json",
 };

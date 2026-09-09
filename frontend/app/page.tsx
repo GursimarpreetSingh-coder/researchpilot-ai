@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   ArrowUp,
+  BarChart3,
   CheckCheck,
   ChevronRight,
   FileText,
@@ -12,8 +13,11 @@ import {
   Lock,
   Maximize2,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   MessageSquare,
   Mic,
+  Microscope,
   Minimize2,
   MoreVertical,
   Paperclip,
@@ -24,11 +28,15 @@ import {
   Smile,
   Sparkles,
   Star,
+  TriangleAlert,
+  Trash2,
   X,
   Zap,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 
 import {
   useCallback,
@@ -49,6 +57,7 @@ const INITIAL_CONVERSATION_ID =
 
 const ACTIVE_CONVERSATION_KEY = "researchpilot_active_conversation_id";
 const MAX_PDF_SIZE = 20 * 1024 * 1024;
+const MAX_PAPER_UPLOADS = 8;
 
 type Message = {
   id: string;
@@ -71,7 +80,8 @@ type Paper = {
 };
 
 type SpeechRecognitionEventLike = {
-  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+  results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>;
+  resultIndex?: number;
 };
 
 type SpeechRecognitionErrorEventLike = {
@@ -96,6 +106,7 @@ type Conversation = {
   id: string;
   user_id: string;
   paper_id?: string | null;
+  paper_ids?: string[];
   title: string;
   created_at: string;
   updated_at: string;
@@ -108,7 +119,7 @@ const initialConversation: Conversation = {
   id: INITIAL_CONVERSATION_ID,
   user_id: USER_ID,
   paper_id: PAPER_ID,
-  title: "Growing Your Internal Finance",
+  title: "AI-assisted research workspace",
   created_at: "",
   updated_at: "",
   messages: [],
@@ -117,22 +128,22 @@ const initialConversation: Conversation = {
 
 const suggestedQuestions = [
   {
-    icon: "🔍",
+    icon: Search,
     text: "What is the main research problem?",
     color: "from-blue-500 to-cyan-400",
   },
   {
-    icon: "📊",
+    icon: BarChart3,
     text: "Summarize the key findings.",
     color: "from-purple-500 to-pink-400",
   },
   {
-    icon: "🔬",
+    icon: Microscope,
     text: "Explain the methodology.",
     color: "from-emerald-500 to-teal-400",
   },
   {
-    icon: "⚠️",
+    icon: TriangleAlert,
     text: "What are the limitations?",
     color: "from-orange-500 to-red-400",
   },
@@ -295,7 +306,8 @@ function MessageBubble({
             <div className="whitespace-pre-wrap">{message.content}</div>
           ) : (
             <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex]}
               components={{
                 h1: ({ children }) => <h1 className="mb-3 text-xl font-bold">{children}</h1>,
                 h2: ({ children }) => <h2 className="mb-3 text-lg font-semibold">{children}</h2>,
@@ -381,12 +393,12 @@ function EmptyState({
 
       <div className="mt-8 grid w-full max-w-2xl gap-3 md:grid-cols-2">
         {suggestedQuestions.map(
-          ({ icon, text, color }) => (
+          ({ icon: Icon, text, color }) => (
             <button
               type="button"
               key={text}
               onClick={() => onQuestion(text)}
-              className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.045] hover:shadow-2xl"
+              className="suggestion-card group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.045] hover:shadow-2xl"
             >
               <div
                 className={`absolute inset-0 bg-gradient-to-br ${color} opacity-0 transition-opacity duration-500 group-hover:opacity-[0.07]`}
@@ -394,15 +406,20 @@ function EmptyState({
 
               <div className="relative">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl">{icon}</span>
+                  <Icon
+                    aria-hidden="true"
+                    size={28}
+                    strokeWidth={1.8}
+                    className="suggestion-card-icon text-indigo-600"
+                  />
 
                   <ArrowUp
                     size={15}
-                    className="-rotate-45 text-slate-700 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-cyan-400"
+                    className="suggestion-card-arrow -rotate-45 text-indigo-600 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
                   />
                 </div>
 
-                <div className="mt-4 text-sm font-medium text-slate-400 transition group-hover:text-white">
+                <div className="suggestion-card-label mt-4 text-sm font-semibold transition">
                   {text}
                 </div>
               </div>
@@ -570,6 +587,9 @@ export default function Home() {
 
   const [mobileSidebar, setMobileSidebar] =
     useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(310);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [resizingSidebar, setResizingSidebar] = useState(false);
 
   const [showDetails, setShowDetails] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -592,12 +612,41 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
   const inputRef =
     useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const voiceBaseInputRef = useRef("");
+  const voiceCommittedTextRef = useRef("");
+
+  function toggleSidebarVisibility() {
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      setMobileSidebar((visible) => !visible);
+      return;
+    }
+
+    setSidebarCollapsed((collapsed) => !collapsed);
+  }
+
+  useEffect(() => {
+    if (!resizingSidebar) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const sidebarLeft = sidebarRef.current?.getBoundingClientRect().left ?? 0;
+      setSidebarWidth(Math.min(440, Math.max(240, event.clientX - sidebarLeft)));
+    };
+    const stopResizing = () => setResizingSidebar(false);
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+    };
+  }, [resizingSidebar]);
 
   /* ---------------------------------------------------------------------- */
   /* Backend health                                                         */
@@ -699,7 +748,10 @@ export default function Home() {
         setConversations(valid);
 
         const activeId = localStorage.getItem(ACTIVE_CONVERSATION_KEY);
-        const active = valid.find((item) => item.id === activeId) || valid[0];
+        const storedActive = valid.find((item) => item.id === activeId);
+        const active = storedActive?.paper_id
+          ? storedActive
+          : valid.find((item) => item.paper_id) || initialConversation;
         if (active) void loadConversation(active.id);
       })
       .catch(() => {
@@ -756,7 +808,12 @@ export default function Home() {
   /* Create conversation                                                    */
   /* ---------------------------------------------------------------------- */
 
-  async function createConversation(paper?: Paper) {
+  async function createConversation(paperInput?: Paper | Paper[]) {
+    const papers = paperInput
+      ? Array.isArray(paperInput) ? paperInput : [paperInput]
+      : [];
+    const primaryPaper = papers[0];
+
     try {
       const response = await fetch(
         `${API}/api/conversations`,
@@ -767,8 +824,11 @@ export default function Home() {
           },
           body: JSON.stringify({
             user_id: USER_ID,
-            paper_id: paper?.id || selectedPaper.id,
-            title: paper ? paper.title : "New Conversation",
+            paper_id: primaryPaper?.id || selectedPaper.id,
+            paper_ids: papers.length ? papers.map((paper) => paper.id) : undefined,
+            title: papers.length > 1
+              ? `Comparison: ${papers.length} research papers`
+              : primaryPaper?.title || "New Conversation",
           }),
         }
       );
@@ -809,7 +869,7 @@ throw new Error(
 
       setConversation(newConversation);
       localStorage.setItem(ACTIVE_CONVERSATION_KEY, newConversation.id);
-      if (paper) setSelectedPaper(paper);
+      if (primaryPaper) setSelectedPaper(primaryPaper);
       setInput("");
       setSources([]);
       setShowSources(false);
@@ -834,6 +894,11 @@ throw new Error(
     const message = (text ?? input).trim();
 
     if (!message || !conversation || loading) {
+      return;
+    }
+
+    if (!conversation.paper_id) {
+      alert("Upload or select a research paper before asking questions.");
       return;
     }
 
@@ -889,8 +954,10 @@ if (!response.ok) {
   }
 
   console.error("Chat API error:", {
+    endpoint: `${API}/api/conversations/${conversation.id}/chat`,
     status: response.status,
     detail,
+    responseBody: errorText,
   });
 
   throw new Error(
@@ -962,7 +1029,16 @@ if (!response.ok) {
       });
 
     } catch (error) {
-      console.error("Chat error:", error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : `Request failed: ${String(error)}`;
+
+      console.error("Chat error:", {
+        message: errorMessage,
+        api: API,
+        conversationId: conversation.id,
+        paperId: conversation.paper_id,
+      });
 
       setConversation((previous) => {
         if (!previous) return previous;
@@ -975,9 +1051,9 @@ if (!response.ok) {
         };
       });
 
-      alert(
-        "Unable to get an answer. Please check that the backend and RAG service are running."
-      );
+      alert(errorMessage.includes("429") || errorMessage.toLowerCase().includes("quota")
+        ? `AI quota is temporarily exhausted. ${errorMessage}`
+        : `Unable to get an answer. ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -990,49 +1066,84 @@ if (!response.ok) {
   async function selectConversation(
     item: Conversation
   ) {
+    setMobileSidebar(false);
     setConversation({
       ...item,
       unreadCount: 0,
     });
 
-    setMobileSidebar(false);
     setShowSources(false);
     localStorage.setItem(ACTIVE_CONVERSATION_KEY, item.id);
 
     await loadConversation(item.id);
   }
 
-  async function handlePdfUpload(file: File) {
+  async function clearConversationHistory() {
+    if (!conversations.length) return;
+    if (!window.confirm("Clear all previous conversations? This cannot be undone.")) return;
+
+    try {
+      const response = await fetch(`${API}/api/conversations/clear?user_id=${USER_ID}`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || `Could not clear history (${response.status}).`);
+      }
+      setConversations([]);
+      setConversation(null);
+      localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
+      setMobileSidebar(false);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not clear conversation history.");
+    }
+  }
+
+  async function handlePdfUpload(files: FileList | File[]) {
     setUploadError("");
     setUploadState("idle");
 
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      setUploadError("Please select a PDF file.");
+    const selectedFiles = Array.from(files);
+    if (!selectedFiles.length) return;
+    if (selectedFiles.length > MAX_PAPER_UPLOADS) {
+      setUploadError(`You can compare up to ${MAX_PAPER_UPLOADS} papers at once.`);
       setUploadState("error");
       return;
     }
 
-    if (file.size > MAX_PDF_SIZE) {
-      setUploadError("PDF must be 20 MB or smaller.");
+    const invalidFile = selectedFiles.find((file) =>
+      file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")
+    );
+    if (invalidFile) {
+      setUploadError(`${invalidFile.name} is not a PDF file.`);
+      setUploadState("error");
+      return;
+    }
+
+    const oversizedFile = selectedFiles.find((file) => file.size > MAX_PDF_SIZE);
+    if (oversizedFile) {
+      setUploadError(`${oversizedFile.name} exceeds the 20 MB limit.`);
       setUploadState("error");
       return;
     }
 
     setUploadState("uploading");
     const formData = new FormData();
-    formData.append("files", file);
+    selectedFiles.forEach((file) => formData.append("files", file));
 
     try {
       const response = await fetch(`${API}/api/uploads/papers`, { method: "POST", body: formData });
       const data = await response.json();
-      if (!response.ok || !data.files?.[0]?.paper_id) throw new Error(data.detail || "Upload failed.");
+      if (!response.ok || !Array.isArray(data.files) || data.files.length !== selectedFiles.length) {
+        throw new Error(data.detail || "Upload failed.");
+      }
 
-      const paper: Paper = {
-        id: data.files[0].paper_id,
-        title: file.name.replace(/\.pdf$/i, ""),
-        pdf_url: `/api/papers/${data.files[0].paper_id}/pdf`,
-      };
-      await createConversation(paper);
+      const papers: Paper[] = data.files.map((uploaded: { paper_id: string; original_filename: string }) => ({
+        id: uploaded.paper_id,
+        title: uploaded.original_filename.replace(/\.pdf$/i, ""),
+        pdf_url: `/api/papers/${uploaded.paper_id}/pdf`,
+      }));
+      await createConversation(papers);
       setUploadState("success");
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Upload failed. Please try again.");
@@ -1072,6 +1183,7 @@ if (!response.ok) {
     }
 
     voiceBaseInputRef.current = input.trimEnd();
+    voiceCommittedTextRef.current = "";
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -1079,20 +1191,37 @@ if (!response.ok) {
 
     recognition.onstart = () => setIsRecording(true);
     recognition.onresult = (event) => {
-      let transcript = "";
+      let finalTranscript = voiceCommittedTextRef.current;
+      let interimTranscript = "";
 
-      for (let index = 0; index < event.results.length; index += 1) {
-        transcript += event.results[index][0].transcript;
+      const firstResult = event.resultIndex ?? 0;
+      for (let index = firstResult; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = result[0].transcript;
+
+        if (result.isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
       }
 
-      const separator = voiceBaseInputRef.current ? " " : "";
-      setInput(`${voiceBaseInputRef.current}${separator}${transcript.trimStart()}`);
+      voiceCommittedTextRef.current = finalTranscript;
+
+      const spokenText = `${finalTranscript}${interimTranscript}`.trim();
+      const base = voiceBaseInputRef.current.trimEnd();
+      setInput(base ? `${base} ${spokenText}`.trim() : spokenText);
     };
     recognition.onerror = (event) => {
       console.error("Speech recognition error:", event.error);
       setIsRecording(false);
     };
-    recognition.onend = () => setIsRecording(false);
+    recognition.onend = () => {
+      const base = voiceBaseInputRef.current.trimEnd();
+      const committed = voiceCommittedTextRef.current.trim();
+      setInput(base ? `${base} ${committed}`.trim() : committed);
+      setIsRecording(false);
+    };
     recognitionRef.current = recognition;
     recognition.start();
   }
@@ -1126,7 +1255,11 @@ if (!response.ok) {
 
   return (
     <main
-      className={`min-h-screen overflow-hidden bg-[#070a12] text-white ${
+      className={`research-app min-h-screen overflow-hidden bg-[#070a12] text-white ${
+        sidebarCollapsed ? "sidebar-collapsed" : ""
+      } ${
+        resizingSidebar ? "sidebar-is-resizing" : ""
+      } ${
         isFullscreen
           ? "fixed inset-0 z-50"
           : ""
@@ -1213,20 +1346,45 @@ if (!response.ok) {
         </div>
       )}
 
-      <div className="relative flex h-screen">
+      <div className="relative flex h-screen min-w-0 overflow-hidden">
+        {mobileSidebar && (
+          <button
+            type="button"
+            aria-label="Close conversation history"
+            onClick={() => setMobileSidebar(false)}
+            className="mobile-sidebar-backdrop fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px] lg:hidden"
+          />
+        )}
+
+        <button
+          type="button"
+          onClick={toggleSidebarVisibility}
+          style={{
+            left: sidebarCollapsed ? 12 : Math.max(12, sidebarWidth - 52),
+          }}
+          className="workspace-sidebar-toggle sidebar-toggle hidden rounded-xl p-2 transition lg:flex"
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Close sidebar"}
+        >
+          {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        </button>
+
         {/* ---------------------------------------------------------------- */}
         {/* Sidebar                                                          */}
         {/* ---------------------------------------------------------------- */}
 
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-[310px] flex-col border-r border-white/[0.07] bg-[#080b14]/95 backdrop-blur-2xl transition-transform duration-300 lg:relative lg:translate-x-0 ${
+          ref={sidebarRef}
+          style={{ width: sidebarCollapsed ? 64 : sidebarWidth }}
+          className={`research-sidebar fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-white/[0.07] bg-[#080b14]/95 backdrop-blur-2xl transition-[transform,width] duration-300 lg:relative lg:translate-x-0 ${
+            sidebarCollapsed ? "sidebar-collapsed" : ""
+          } ${
             mobileSidebar
               ? "translate-x-0"
               : "-translate-x-full"
           }`}
         >
           {/* Logo */}
-          <div className="flex h-[82px] shrink-0 items-center justify-between border-b border-white/[0.07] px-5">
+          <div className="sidebar-brand flex h-[82px] shrink-0 items-center justify-between border-b border-white/[0.07] px-5">
             <div className="flex items-center gap-3">
               <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-lg font-bold shadow-lg shadow-blue-500/20">
                 R
@@ -1247,13 +1405,13 @@ if (!response.ok) {
 
             <button
               type="button"
-              onClick={() =>
-                setMobileSidebar(false)
-              }
-              className="rounded-xl p-2 text-slate-500 hover:bg-white/5 hover:text-white lg:hidden"
+              onClick={() => setMobileSidebar(false)}
+              className="mobile-sidebar-close rounded-xl p-2 text-slate-500 transition hover:bg-black/5 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
+              aria-label="Close conversation history"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
+
           </div>
 
           {/* New conversation */}
@@ -1261,7 +1419,7 @@ if (!response.ok) {
             <button
               type="button"
               onClick={() => void createConversation()}
-              className="group flex w-full items-center justify-between rounded-2xl border border-white/10 bg-gradient-to-r from-white/[0.05] to-white/[0.02] px-4 py-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-500/30 hover:bg-violet-500/[0.06]"
+              className="new-conversation-button group flex w-full items-center justify-between rounded-2xl border border-white/10 bg-gradient-to-r from-white/[0.05] to-white/[0.02] px-4 py-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-500/30 hover:bg-violet-500/[0.06]"
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-lg shadow-violet-500/20">
@@ -1269,10 +1427,10 @@ if (!response.ok) {
                 </div>
 
                 <div>
-                  <div className="text-sm font-semibold">
+                  <div className="new-conversation-title text-sm font-semibold">
                     New conversation
                   </div>
-                  <div className="text-[10px] text-slate-500">
+                  <div className="new-conversation-subtitle text-[10px]">
                     Start a fresh research session
                   </div>
                 </div>
@@ -1311,10 +1469,19 @@ if (!response.ok) {
                 Conversations
               </span>
 
-              <MessageSquare
-                size={13}
-                className="text-slate-600"
-              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void clearConversationHistory()}
+                  disabled={!conversations.length}
+                  className="rounded-lg p-1.5 text-slate-500 transition hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Clear conversation history"
+                  title="Clear conversation history"
+                >
+                  <Trash2 size={13} />
+                </button>
+                <MessageSquare size={13} className="text-slate-600" />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -1334,7 +1501,7 @@ if (!response.ok) {
                     onClick={() =>
                       selectConversation(item)
                     }
-                    className={`group relative w-full rounded-2xl border p-3 text-left transition-all duration-300 ${
+                    className={`conversation-item group relative w-full rounded-2xl border p-3 text-left transition-all duration-300 ${
                       active
                         ? "border-cyan-500/20 bg-gradient-to-r from-cyan-500/[0.08] via-blue-500/[0.06] to-violet-500/[0.08] shadow-lg shadow-cyan-500/5"
                         : "border-transparent hover:border-white/[0.07] hover:bg-white/[0.025]"
@@ -1356,11 +1523,11 @@ if (!response.ok) {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13px] font-medium text-slate-200">
+                        <div className="conversation-title truncate text-[13px] font-medium text-slate-200">
                           {item.title}
                         </div>
 
-                        <div className="mt-1 truncate text-[10px] text-slate-600">
+                        <div className="conversation-subtitle mt-1 truncate text-[10px]">
                           {lastMessage
                             ? lastMessage.content
                             : "No messages yet"}
@@ -1409,13 +1576,25 @@ if (!response.ok) {
 </button>
             </div>
           </div>
+
+          {!sidebarCollapsed && (
+            <button
+              type="button"
+              aria-label="Resize sidebar"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                setResizingSidebar(true);
+              }}
+              className={`sidebar-resize-handle absolute right-0 top-0 h-full w-3 translate-x-1/2 cursor-col-resize ${resizingSidebar ? "sidebar-is-resizing" : ""}`}
+            />
+          )}
         </aside>
 
         {/* ---------------------------------------------------------------- */}
         {/* Main area                                                        */}
         {/* ---------------------------------------------------------------- */}
 
-        <section className="flex min-w-0 flex-1 flex-col">
+        <section className={`workspace-panel relative flex min-w-0 flex-1 flex-col overflow-hidden ${sidebarCollapsed ? "sidebar-collapsed-workspace" : ""}`}>
           {/* Header */}
           <header className="flex h-[82px] shrink-0 items-center border-b border-white/[0.07] bg-[#080b14]/80 px-4 backdrop-blur-2xl lg:px-6">
             <button
@@ -1429,7 +1608,7 @@ if (!response.ok) {
             </button>
 
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="hidden h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-violet-500/20 text-cyan-400 sm:flex">
+              <div className="paper-header-icon hidden h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-violet-500/20 sm:flex">
                 <FileText size={18} />
               </div>
 
@@ -1440,7 +1619,7 @@ if (!response.ok) {
                     /
                   </span>
                   <span className="text-slate-600">
-                    IIED
+                        ResearchPilot
                   </span>
                 </div>
 
@@ -1524,9 +1703,9 @@ if (!response.ok) {
           </header>
 
           {/* Body */}
-          <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
             {/* Chat */}
-            <div className="relative flex min-w-0 flex-1 flex-col">
+            <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto px-4 py-6 lg:px-8">
                 <div className="mx-auto w-full max-w-[900px]">
                   <div className="mb-6 flex justify-center">
@@ -1623,9 +1802,8 @@ if (!response.ok) {
                         <Paperclip size={16} />
                       </button>
 
-                      <input ref={fileInputRef} type="file" accept=".pdf,application/pdf" className="hidden" onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) void handlePdfUpload(file);
+                      <input ref={fileInputRef} type="file" accept=".pdf,application/pdf" multiple className="hidden" onChange={(event) => {
+                        if (event.target.files?.length) void handlePdfUpload(event.target.files);
                       }} />
 
                       <div ref={emojiPickerRef} className="relative">
@@ -1733,19 +1911,19 @@ if (!response.ok) {
                   </div>
 
                   {/* Paper card */}
-                  <div className="relative mb-5 overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-br from-cyan-500/[0.08] via-blue-500/[0.05] to-violet-500/[0.08] p-5">
+                  <div className="paper-details-card relative mb-5 overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-br from-cyan-500/[0.08] via-blue-500/[0.05] to-violet-500/[0.08] p-5">
                     <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-cyan-500/10 blur-3xl" />
 
                     <div className="relative">
-                      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-violet-600 shadow-lg shadow-blue-500/20">
+                      <div className="paper-details-icon mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-violet-600 shadow-lg shadow-blue-500/20">
                         <FileText size={21} />
                       </div>
 
-                      <h2 className="text-sm font-semibold leading-5 text-white">
+                      <h2 className="paper-details-title text-sm font-semibold leading-5 text-white">
                         {selectedPaper.title}
                       </h2>
 
-                      <p className="mt-1 text-[10px] text-slate-500">
+                      <p className="paper-details-meta mt-1 text-[10px]">
                         IIED · July 2026
                       </p>
                     </div>
@@ -1783,10 +1961,10 @@ if (!response.ok) {
 
                     <div className="flex flex-wrap gap-2">
                       {[
-                        "Internal Finance",
-                        "FFPOs",
-                        "Savings",
-                        "Finance",
+                        "Machine learning",
+                        "Literature review",
+                        "Research methods",
+                        "Scientific insights",
                       ].map((topic) => (
                         <button
                           type="button"

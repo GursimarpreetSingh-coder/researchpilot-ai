@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -9,7 +9,9 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
 from app.models.paper import Paper
+from app.models.conversation_paper import ConversationPaper
 from app.services.rag_service import answer_question
+from app.services.ai_service import ProviderRateLimitError
 
 
 router = APIRouter(
@@ -54,6 +56,7 @@ def get_or_create_user(db: Session, user_id: UUID):
 class CreateConversationRequest(BaseModel):
     user_id: UUID
     paper_id: UUID | None = None
+    paper_ids: list[UUID] = []
     title: str = "New Conversation"
 
 
@@ -72,23 +75,31 @@ def create_conversation(
 ):
     user = get_or_create_user(db, request.user_id)
 
-    if request.paper_id:
-        paper = db.get(Paper, request.paper_id)
-
+    requested_paper_ids = list(dict.fromkeys(
+        [paper_id for paper_id in request.paper_ids]
+        + ([request.paper_id] if request.paper_id else [])
+    ))
+    papers = []
+    for paper_id in requested_paper_ids:
+        paper = db.get(Paper, paper_id)
         if not paper:
-            raise HTTPException(
-                status_code=404,
-                detail="Paper not found.",
-            )
+            raise HTTPException(status_code=404, detail=f"Paper not found: {paper_id}")
+        papers.append(paper)
+
+    primary_paper_id = request.paper_id or (papers[0].id if papers else None)
     conversation = Conversation(
         user_id=request.user_id,
-        paper_id=request.paper_id,
+        paper_id=primary_paper_id,
         title=request.title,
     )
 
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
+
+    for paper in papers:
+        db.add(ConversationPaper(conversation_id=conversation.id, paper_id=paper.id))
+    db.commit()
 
     return {
         "id": str(conversation.id),
@@ -98,6 +109,7 @@ def create_conversation(
             if conversation.paper_id
             else None
         ),
+        "paper_ids": [str(paper.id) for paper in papers],
         "title": conversation.title,
         "created_at": conversation.created_at,
         "updated_at": conversation.updated_at,
@@ -141,6 +153,12 @@ def list_conversations(
                     if conversation.paper_id
                     else None
                 ),
+                "paper_ids": [
+                    str(link.paper_id)
+                    for link in db.query(ConversationPaper)
+                    .filter(ConversationPaper.conversation_id == conversation.id)
+                    .all()
+                ] or ([str(conversation.paper_id)] if conversation.paper_id else []),
                 "title": conversation.title,
                 "created_at": conversation.created_at,
                 "updated_at": conversation.updated_at,
@@ -158,6 +176,46 @@ def list_conversations(
         )
 
     return conversation_items
+
+
+@router.post("/clear")
+def clear_conversations(
+    user_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+):
+    conversations = (
+        db.query(Conversation)
+        .filter(Conversation.user_id == user_id)
+        .all()
+    )
+
+    for conversation in conversations:
+        db.delete(conversation)
+
+    db.commit()
+    return {"deleted": len(conversations)}
+
+
+@router.delete("/{conversation_id}", status_code=204)
+def delete_conversation(
+    conversation_id: UUID,
+    user_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+):
+    conversation = (
+        db.query(Conversation)
+        .filter(
+            Conversation.id == conversation_id,
+            Conversation.user_id == user_id,
+        )
+        .first()
+    )
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    db.delete(conversation)
+    db.commit()
 
 
 # ============================================================
@@ -197,6 +255,12 @@ def get_conversation(
             if conversation.paper_id
             else None
         ),
+        "paper_ids": [
+            str(link.paper_id)
+            for link in db.query(ConversationPaper)
+            .filter(ConversationPaper.conversation_id == conversation.id)
+            .all()
+        ] or ([str(conversation.paper_id)] if conversation.paper_id else []),
         "title": conversation.title,
         "created_at": conversation.created_at,
         "updated_at": conversation.updated_at,
@@ -286,7 +350,16 @@ def chat(
             detail="Message cannot be empty.",
         )
 
-    if not conversation.paper_id:
+    linked_paper_ids = [
+        link.paper_id
+        for link in db.query(ConversationPaper)
+        .filter(ConversationPaper.conversation_id == conversation.id)
+        .all()
+    ]
+    if not linked_paper_ids and conversation.paper_id:
+        linked_paper_ids = [conversation.paper_id]
+
+    if not linked_paper_ids:
         raise HTTPException(
             status_code=400,
             detail="Conversation is not linked to a paper.",
@@ -306,7 +379,7 @@ def chat(
         # 2. Run RAG
         result = answer_question(
             db=db,
-            paper_id=conversation.paper_id,
+            paper_ids=linked_paper_ids,
             question=request.content,
             top_k=5,
         )
@@ -343,11 +416,28 @@ def chat(
             "sources": result["sources"],
         }
 
+    except ProviderRateLimitError as error:
+        db.rollback()
+        headers = {}
+        if error.retry_seconds is not None:
+            headers["Retry-After"] = str(error.retry_seconds)
+        raise HTTPException(
+            status_code=429,
+            detail=str(error),
+            headers=headers,
+        ) from error
     except Exception as e:
         db.rollback()
 
         import traceback
         traceback.print_exc()
+
+        if "rate limit" in str(e).lower() or "AI provider" in str(e):
+            raise HTTPException(
+                status_code=429,
+                detail=str(e),
+                headers={"Retry-After": "30"},
+            ) from e
 
         raise HTTPException(
             status_code=500,

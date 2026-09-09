@@ -9,3 +9,4 @@ from app.models.paper_chunk import PaperChunk
 from app.models.paper_summary import PaperSummary
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.conversation_paper import ConversationPaper
