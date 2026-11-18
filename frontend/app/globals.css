@@ -1415,6 +1415,24 @@ button:disabled {
   box-shadow: none !important;
 }
 
+.research-app .paper-header-icon {
+  background: linear-gradient(135deg, #38a985, #187a61) !important;
+  background-image: linear-gradient(135deg, #38a985, #187a61) !important;
+  color: #ffffff !important;
+}
+
+.research-app .composer-send-button {
+  border-color: #237b5b !important;
+  background: linear-gradient(145deg, #58b884, #237b5b) !important;
+  background-image: linear-gradient(145deg, #58b884, #237b5b) !important;
+  box-shadow: 0 8px 18px rgba(35, 123, 91, 0.24) !important;
+}
+
+.research-app .composer-send-button:hover {
+  background: linear-gradient(145deg, #68c994, #2c916b) !important;
+  background-image: linear-gradient(145deg, #68c994, #2c916b) !important;
+}
+
 .research-app .paper-details-icon svg {
   color: var(--app-accent) !important;
   stroke: currentColor !important;
