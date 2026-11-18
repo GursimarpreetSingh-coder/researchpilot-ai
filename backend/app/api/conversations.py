@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -160,6 +161,8 @@ def list_conversations(
                     .all()
                 ] or ([str(conversation.paper_id)] if conversation.paper_id else []),
                 "title": conversation.title,
+                "archived": conversation.archived,
+                "archived_at": conversation.archived_at,
                 "created_at": conversation.created_at,
                 "updated_at": conversation.updated_at,
                 "last_message": (
@@ -194,6 +197,48 @@ def clear_conversations(
 
     db.commit()
     return {"deleted": len(conversations)}
+
+
+@router.post("/{conversation_id}/archive")
+def archive_conversation(
+    conversation_id: UUID,
+    user_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+):
+    conversation = (
+        db.query(Conversation)
+        .filter(Conversation.id == conversation_id, Conversation.user_id == user_id)
+        .first()
+    )
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    conversation.archived = True
+    conversation.archived_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(conversation)
+    return {"id": str(conversation.id), "archived": True, "archived_at": conversation.archived_at}
+
+
+@router.post("/{conversation_id}/unarchive")
+def unarchive_conversation(
+    conversation_id: UUID,
+    user_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+):
+    conversation = (
+        db.query(Conversation)
+        .filter(Conversation.id == conversation_id, Conversation.user_id == user_id)
+        .first()
+    )
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    conversation.archived = False
+    conversation.archived_at = None
+    db.commit()
+    db.refresh(conversation)
+    return {"id": str(conversation.id), "archived": False, "archived_at": None}
 
 
 @router.delete("/{conversation_id}", status_code=204)
@@ -262,6 +307,8 @@ def get_conversation(
             .all()
         ] or ([str(conversation.paper_id)] if conversation.paper_id else []),
         "title": conversation.title,
+        "archived": conversation.archived,
+        "archived_at": conversation.archived_at,
         "created_at": conversation.created_at,
         "updated_at": conversation.updated_at,
         "messages": [
@@ -359,12 +406,6 @@ def chat(
     if not linked_paper_ids and conversation.paper_id:
         linked_paper_ids = [conversation.paper_id]
 
-    if not linked_paper_ids:
-        raise HTTPException(
-            status_code=400,
-            detail="Conversation is not linked to a paper.",
-        )
-
     try:
         # 1. Save user message
         user_message = Message(
@@ -376,13 +417,43 @@ def chat(
         db.add(user_message)
         db.flush()
 
-        # 2. Run RAG
-        result = answer_question(
-            db=db,
-            paper_ids=linked_paper_ids,
-            question=request.content,
-            top_k=5,
+        # 2. Load recent conversation history for context-aware follow-ups.
+        recent_messages = (
+            db.query(Message)
+            .filter(Message.conversation_id == conversation.id)
+            .order_by(Message.created_at.desc())
+            .limit(12)
+            .all()
         )
+        recent_messages.reverse()
+        conversation_context = "\n".join(
+            f"{message.role.upper()}: {message.content}"
+            for message in recent_messages
+        )
+
+        # 3. Run RAG for a linked paper, or general AI chat without one.
+        if linked_paper_ids:
+            result = answer_question(
+                db=db,
+                paper_ids=linked_paper_ids,
+                question=request.content,
+                conversation_context=conversation_context,
+                top_k=5,
+            )
+        else:
+            from app.services.ai_service import generate_answer
+
+            result = {
+                "answer": generate_answer(
+                    "You are ResearchPilot, a precise and helpful AI assistant. "
+                    "Use the recent conversation to resolve follow-up references. "
+                    "Answer the user's general question clearly and accurately. "
+                    f"RECENT CONVERSATION:\n{conversation_context}\n\n"
+                    "Do not claim that any research paper was used.\n\n"
+                    f"USER QUESTION:\n{request.content}"
+                ),
+                "sources": [],
+            }
 
         # 3. Save assistant message
         assistant_message = Message(

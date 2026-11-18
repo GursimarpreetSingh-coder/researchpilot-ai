@@ -22,7 +22,9 @@ def clean_extracted_text(text: str) -> str:
     text = re.sub(r"\s*-\s*", "-", text)
 
     # Normalize excessive blank lines.
-    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"([A-Za-z])[-]\s*\n\s*([A-Za-z])", r"\1\2", text)
+    text = re.sub(r"(?<![.!?:])\n(?=[a-z])", " ", text)
+    text = re.sub(r"\n{2,}", "\n", text)
 
     return text.strip()
 

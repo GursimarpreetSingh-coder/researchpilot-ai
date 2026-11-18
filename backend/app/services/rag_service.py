@@ -8,7 +8,7 @@ from app.models.paper_chunk import PaperChunk
 from app.services.ai_service import generate_embedding, generate_answer
 
 
-PAPER_RELEVANCE_THRESHOLD = 0.38
+PAPER_RELEVANCE_THRESHOLD = 0.12
 
 
 def retrieve_relevant_chunks(
@@ -52,6 +52,12 @@ def retrieve_relevant_chunks(
 
         return dot / (norm_a * norm_b)
 
+    query_words = {
+        word.strip(".,!?;:'\"()").lower()
+        for word in query.split()
+        if len(word.strip(".,!?;:'\"()")) > 3
+    }
+
     scored_chunks = []
 
     for chunk in chunks:
@@ -63,7 +69,13 @@ def retrieve_relevant_chunks(
 
         score = cosine_similarity(query_embedding, embedding)
 
-        scored_chunks.append((score, chunk))
+        keyword_score = sum(
+            1 for word in query_words
+            if word in chunk.content.lower()
+        ) / max(1, len(query_words))
+        combined_score = (score * 0.65) + (keyword_score * 0.35)
+
+        scored_chunks.append((combined_score, chunk))
 
     scored_chunks.sort(
         key=lambda item: item[0],
@@ -79,6 +91,7 @@ def retrieve_relevant_chunks(
 def answer_question(
     db: Session,
     question: str,
+    conversation_context: str = "",
     top_k: int = 5,
     paper_id: UUID | None = None,
     paper_ids: list[UUID] | None = None,
@@ -177,6 +190,9 @@ You are ResearchPilot, an AI research-paper assistant.
 Answer the user's question using the provided paper excerpts when the
 question is about the selected paper. If the question is outside the paper,
 answer it from your general knowledge instead.
+
+RECENT CONVERSATION:
+{conversation_context}
 
 USER QUESTION:
 {question}

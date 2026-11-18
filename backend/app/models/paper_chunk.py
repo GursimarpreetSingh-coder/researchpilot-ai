@@ -1,8 +1,8 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Text, func
-from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID, JSONB
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, Text, func
+from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -45,7 +45,7 @@ class PaperChunk(Base):
     )
 
     embedding: Mapped[list[float] | None] = mapped_column(
-        JSONB,
+        JSON,
         nullable=True,
     )
 

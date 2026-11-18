@@ -66,6 +66,24 @@ PAPER:
 ==================================================
 """
 
+    if client is None:
+        summary = (
+            "Offline extract: "
+            + (" ".join(paper_text.split())[:700])
+            + ("…" if len(paper_text) > 700 else "")
+        )
+        record = PaperSummary(
+            paper_id=paper_id,
+            summary=summary,
+            key_contributions="Configure an AI provider for semantic contribution extraction.",
+            methodology="Configure an AI provider for methodology extraction.",
+            limitations="Configure an AI provider for reliable limitation analysis.",
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return record
+
     response = client.models.generate_content(
         model=MODEL,
         contents=prompt,

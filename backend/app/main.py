@@ -15,6 +15,29 @@ app.include_router(upload_router)
 app.include_router(questions_router)
 app.include_router(conversations_router)
 
+
+@app.on_event("startup")
+def initialize_database():
+    from sqlalchemy import inspect, text
+
+    from app.db import models as _models  # noqa: F401
+    from app.db.base import Base
+    from app.db.session import engine
+
+    Base.metadata.create_all(bind=engine)
+
+    if settings.database_url.startswith("sqlite"):
+        inspector = inspect(engine)
+        conversation_columns = {
+            column["name"]
+            for column in inspector.get_columns("conversations")
+        }
+        with engine.begin() as connection:
+            if "archived" not in conversation_columns:
+                connection.execute(text("ALTER TABLE conversations ADD COLUMN archived BOOLEAN NOT NULL DEFAULT 0"))
+            if "archived_at" not in conversation_columns:
+                connection.execute(text("ALTER TABLE conversations ADD COLUMN archived_at DATETIME NULL"))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

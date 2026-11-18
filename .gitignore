@@ -17,6 +17,10 @@ node_modules/
 
 # Storage / generated files
 backend/storage/
+backend/researchpilot.db
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
 
 # Logs
 *.log

@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  Archive,
   ArrowUp,
   BarChart3,
   CheckCheck,
@@ -22,6 +23,7 @@ import {
   MoreVertical,
   Paperclip,
   Plus,
+  RefreshCw,
   Search,
   Send,
   Settings,
@@ -30,6 +32,7 @@ import {
   Star,
   TriangleAlert,
   Trash2,
+  UserRound,
   X,
   Zap,
 } from "lucide-react";
@@ -110,6 +113,8 @@ type Conversation = {
   title: string;
   created_at: string;
   updated_at: string;
+  archived?: boolean;
+  archived_at?: string | null;
   messages: Message[];
   last_message?: Message | null;
   unreadCount?: number;
@@ -287,8 +292,8 @@ function MessageBubble({
         <div
           className={`rounded-3xl px-5 py-4 text-sm leading-7 ${
             isUser
-              ? "bg-gradient-to-br from-violet-600 via-fuchsia-600 to-blue-600 text-white shadow-xl shadow-violet-900/20"
-              : "border border-white/[0.07] bg-white/[0.035] text-slate-200 shadow-xl shadow-black/10 backdrop-blur-xl"
+              ? "chat-user-bubble text-[15px] font-medium"
+              : "chat-assistant-bubble text-[14px]"
           }`}
         >
           {!isUser && (
@@ -339,7 +344,7 @@ function MessageBubble({
 
           <div
             className={`mt-2 flex items-center gap-1 text-[9px] ${
-              isUser ? "text-white/60" : "text-slate-600"
+              isUser ? "chat-user-time" : "text-slate-600"
             }`}
           >
             {formatTime(message.created_at)}
@@ -386,10 +391,30 @@ function EmptyState({
       </h2>
 
       <p className="mt-3 max-w-lg text-sm leading-6 text-slate-500">
-        Ask ResearchPilot anything about the selected
-        research paper. Answers are grounded in retrieved
-        sections from the document.
+        Ask about a research paper or start a general conversation.
+        Research answers use document evidence; general answers use
+        AI knowledge and do not claim unsupported paper citations.
       </p>
+
+      <div className="mt-6 grid w-full max-w-2xl gap-3 md:grid-cols-3">
+        {[
+          { label: "Citations", value: "128", accent: "cyan" },
+          { label: "Relevance", value: "91%", accent: "violet" },
+          { label: "Insights", value: "24", accent: "emerald" },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-left shadow-lg shadow-black/10 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-500/30 hover:bg-white/[0.045]"
+          >
+            <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+              {stat.label}
+            </div>
+            <div className="mt-2 text-2xl font-bold text-white">
+              {stat.value}
+            </div>
+          </div>
+        ))}
+      </div>
 
       <div className="mt-8 grid w-full max-w-2xl gap-3 md:grid-cols-2">
         {suggestedQuestions.map(
@@ -454,9 +479,7 @@ function PreferenceToggle({
         aria-checked={checked}
         aria-label={label}
         onClick={onChange}
-        className={`h-6 w-11 shrink-0 rounded-full p-1 transition ${
-          checked ? "bg-indigo-500" : "bg-slate-700"
-        }`}
+        className="preference-toggle h-6 w-11 shrink-0 rounded-full p-1 transition"
       >
         <span
           className={`block h-4 w-4 rounded-full bg-white shadow transition-transform ${
@@ -490,7 +513,7 @@ function SettingsScreen({
   setTheme: (theme: "light" | "dark" | "system") => void;
 }) {
   return (
-    <section className="fixed inset-0 z-[100] overflow-y-auto bg-[#070a12] text-white">
+    <section className="settings-screen fixed inset-0 z-[100] overflow-y-auto">
       <div className="mx-auto min-h-full max-w-4xl px-4 py-6 sm:px-8 sm:py-10">
         <div className="mb-8 flex items-start justify-between border-b border-white/10 pb-6">
           <div>
@@ -504,7 +527,7 @@ function SettingsScreen({
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-<section className="rounded-3xl border border-white/10 bg-slate-950/70 p-6">
+<section className="settings-card rounded-3xl border border-white/10 bg-slate-950/70 p-6">
   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
     Appearance
   </p>
@@ -525,11 +548,8 @@ function SettingsScreen({
             key={option}
             type="button"
             onClick={() => setTheme(option)}
-            className={`rounded-xl border px-3 py-3 text-sm font-medium capitalize transition ${
-              theme === option
-                ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
-                : "border-white/10 bg-white/[0.03] text-slate-500 hover:bg-white/[0.06] hover:text-white"
-            }`}
+            aria-pressed={theme === option}
+            className="theme-option rounded-xl border px-3 py-3 text-sm font-medium capitalize transition"
           >
             {option}
           </button>
@@ -539,14 +559,14 @@ function SettingsScreen({
   </div>
 </section>
 
-          <section className="rounded-3xl border border-white/10 bg-slate-950/70 p-6">
+          <section className="settings-card rounded-3xl border border-white/10 bg-slate-950/70 p-6">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Voice</p>
             <div className="mt-4">
               <PreferenceToggle checked={voiceInputEnabled} onChange={setVoiceInputEnabled} label="Voice input" description="Use your microphone to write messages." />
             </div>
           </section>
 
-          <section className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 md:col-span-2">
+          <section className="settings-card rounded-3xl border border-white/10 bg-slate-950/70 p-6 md:col-span-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Chat</p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <PreferenceToggle checked={enterToSend} onChange={setEnterToSend} label="Enter to send" description="Press Enter to send messages; use Shift + Enter for a new line." />
@@ -584,6 +604,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [backendOnline, setBackendOnline] = useState(false);
+  const [aiProviderConfigured, setAiProviderConfigured] = useState(false);
 
   const [mobileSidebar, setMobileSidebar] =
     useState(false);
@@ -595,6 +616,7 @@ export default function Home() {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [conversationView, setConversationView] = useState<"active" | "archived">("active");
   const [saved, setSaved] = useState(false);
 
   const [showSources, setShowSources] = useState(false);
@@ -659,8 +681,15 @@ export default function Home() {
       });
 
       setBackendOnline(response.ok);
+      if (response.ok) {
+        const data = await response.json().catch(() => null);
+        setAiProviderConfigured(Boolean(data?.ai?.configured));
+      } else {
+        setAiProviderConfigured(false);
+      }
     } catch {
       setBackendOnline(false);
+      setAiProviderConfigured(false);
     }
   }, []);
 
@@ -749,10 +778,12 @@ export default function Home() {
 
         const activeId = localStorage.getItem(ACTIVE_CONVERSATION_KEY);
         const storedActive = valid.find((item) => item.id === activeId);
-        const active = storedActive?.paper_id
-          ? storedActive
-          : valid.find((item) => item.paper_id) || initialConversation;
-        if (active) void loadConversation(active.id);
+        const active = storedActive || valid[0] || null;
+        if (active) {
+          void loadConversation(active.id);
+        } else {
+          setConversation(null);
+        }
       })
       .catch(() => {
         setBackendOnline(false);
@@ -808,7 +839,7 @@ export default function Home() {
   /* Create conversation                                                    */
   /* ---------------------------------------------------------------------- */
 
-  async function createConversation(paperInput?: Paper | Paper[]) {
+  async function createConversation(paperInput?: Paper | Paper[]): Promise<Conversation | null> {
     const papers = paperInput
       ? Array.isArray(paperInput) ? paperInput : [paperInput]
       : [];
@@ -824,7 +855,7 @@ export default function Home() {
           },
           body: JSON.stringify({
             user_id: USER_ID,
-            paper_id: primaryPaper?.id || selectedPaper.id,
+            paper_id: primaryPaper?.id,
             paper_ids: papers.length ? papers.map((paper) => paper.id) : undefined,
             title: papers.length > 1
               ? `Comparison: ${papers.length} research papers`
@@ -874,6 +905,7 @@ throw new Error(
       setSources([]);
       setShowSources(false);
       setMobileSidebar(false);
+      return newConversation;
     } catch (error) {
       console.error(
         "Create conversation error:",
@@ -881,8 +913,9 @@ throw new Error(
       );
 
       alert(
-  "Unable to get an answer. Please check that the backend and RAG service are running."
+  "Unable to create a conversation. Please check that the backend is running."
 );
+      return null;
     }
   }
 
@@ -890,15 +923,63 @@ throw new Error(
   /* Send message                                                           */
   /* ---------------------------------------------------------------------- */
 
-  async function sendMessage(text?: string) {
-    const message = (text ?? input).trim();
-
-    if (!message || !conversation || loading) {
+  async function generatePaperSummary() {
+    if (!conversation || loading) return;
+    if (!conversation.paper_id && !selectedPaper.id) {
+      alert("Upload or select a research paper before generating a summary.");
       return;
     }
 
-    if (!conversation.paper_id) {
-      alert("Upload or select a research paper before asking questions.");
+    setLoading(true);
+    try {
+      const paperId = conversation.paper_id || selectedPaper.id;
+      const response = await fetch(`${API}/api/papers/${paperId}/summary`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || `Summary failed (${response.status}).`);
+
+      const summary = [
+        data.summary && `**Summary**\n${data.summary}`,
+        data.key_contributions && `**Key contributions**\n${data.key_contributions}`,
+        data.methodology && `**Methodology**\n${data.methodology}`,
+        data.limitations && `**Limitations**\n${data.limitations}`,
+      ].filter(Boolean).join("\n\n");
+
+      const assistantMessage: Message = {
+        id: `summary-${Date.now()}`,
+        role: "assistant",
+        content: summary || "No summary was returned.",
+        created_at: new Date().toISOString(),
+        sources: [],
+      };
+
+      setConversation((previous) => previous ? {
+        ...previous,
+        messages: [...previous.messages, assistantMessage],
+        updated_at: assistantMessage.created_at || new Date().toISOString(),
+      } : previous);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not generate the summary.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendMessage(text?: string) {
+    const message = (text ?? input).trim();
+
+    if (!message || loading) {
+      return;
+    }
+
+    let activeConversation = conversation;
+
+    if (!activeConversation || activeConversation.id === INITIAL_CONVERSATION_ID) {
+      const created = await createConversation();
+      if (!created) return;
+      activeConversation = created;
+    }
+
+    if (!activeConversation) {
       return;
     }
 
@@ -928,7 +1009,7 @@ throw new Error(
 
     try {
       const response = await fetch(
-        `${API}/api/conversations/${conversation.id}/chat`,
+        `${API}/api/conversations/${activeConversation.id}/chat`,
         {
           method: "POST",
           headers: {
@@ -954,7 +1035,7 @@ if (!response.ok) {
   }
 
   console.error("Chat API error:", {
-    endpoint: `${API}/api/conversations/${conversation.id}/chat`,
+    endpoint: `${API}/api/conversations/${activeConversation.id}/chat`,
     status: response.status,
     detail,
     responseBody: errorText,
@@ -1008,7 +1089,7 @@ if (!response.ok) {
 
       setConversations((previous) => {
         const updated = previous.map((item) =>
-          item.id === conversation.id
+          item.id === activeConversation.id
             ? {
                 ...item,
                 messages: [
@@ -1036,8 +1117,8 @@ if (!response.ok) {
       console.error("Chat error:", {
         message: errorMessage,
         api: API,
-        conversationId: conversation.id,
-        paperId: conversation.paper_id,
+        conversationId: activeConversation.id,
+        paperId: activeConversation.paper_id,
       });
 
       setConversation((previous) => {
@@ -1076,6 +1157,36 @@ if (!response.ok) {
     localStorage.setItem(ACTIVE_CONVERSATION_KEY, item.id);
 
     await loadConversation(item.id);
+  }
+
+  async function setConversationArchived(item: Conversation, archived: boolean) {
+    try {
+      const endpoint = archived ? "archive" : "unarchive";
+      const response = await fetch(
+        `${API}/api/conversations/${item.id}/${endpoint}?user_id=${USER_ID}`,
+        { method: "POST" }
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || `Could not update conversation (${response.status}).`);
+      }
+
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id === item.id
+            ? { ...conversation, archived, archived_at: archived ? new Date().toISOString() : null }
+            : conversation
+        )
+      );
+
+      if (archived && conversation?.id === item.id) {
+        setConversation(null);
+        localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
+      }
+      setConversationView(archived ? "archived" : "active");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not update the conversation.");
+    }
   }
 
   async function clearConversationHistory() {
@@ -1244,7 +1355,8 @@ if (!response.ok) {
 
   const filteredConversations =
     conversations.filter((item) =>
-      item.title
+      Boolean(item.archived) === (conversationView === "archived")
+      && item.title
         .toLowerCase()
         .includes(searchQuery.toLowerCase())
     );
@@ -1255,7 +1367,8 @@ if (!response.ok) {
 
   return (
     <main
-      className={`research-app min-h-screen overflow-hidden bg-[#070a12] text-white ${
+      data-theme={theme}
+      className={`research-app min-h-screen overflow-hidden ${
         sidebarCollapsed ? "sidebar-collapsed" : ""
       } ${
         resizingSidebar ? "sidebar-is-resizing" : ""
@@ -1294,6 +1407,7 @@ if (!response.ok) {
                 type="button"
                 onClick={() => setShowSources(false)}
                 className="rounded-xl p-2 text-slate-500 transition hover:bg-white/5 hover:text-white"
+                aria-label="Close retrieved sources"
               >
                 <X size={18} />
               </button>
@@ -1364,6 +1478,8 @@ if (!response.ok) {
           }}
           className="workspace-sidebar-toggle sidebar-toggle hidden rounded-xl p-2 transition lg:flex"
           aria-label={sidebarCollapsed ? "Expand sidebar" : "Close sidebar"}
+          aria-expanded={!sidebarCollapsed}
+          aria-controls="conversation-sidebar"
         >
           {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
@@ -1373,6 +1489,7 @@ if (!response.ok) {
         {/* ---------------------------------------------------------------- */}
 
         <aside
+          id="conversation-sidebar"
           ref={sidebarRef}
           style={{ width: sidebarCollapsed ? 64 : sidebarWidth }}
           className={`research-sidebar fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-white/[0.07] bg-[#080b14]/95 backdrop-blur-2xl transition-[transform,width] duration-300 lg:relative lg:translate-x-0 ${
@@ -1386,10 +1503,12 @@ if (!response.ok) {
           {/* Logo */}
           <div className="sidebar-brand flex h-[82px] shrink-0 items-center justify-between border-b border-white/[0.07] px-5">
             <div className="flex items-center gap-3">
-              <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-lg font-bold shadow-lg shadow-blue-500/20">
-                R
-
-                <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border-2 border-[#080b14] bg-emerald-400" />
+              <div className="sidebar-brand-mark relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl">
+                <img
+                  src="/researchpilot-logo.png?v=5"
+                  alt="ResearchPilot"
+                  className="h-full w-full object-cover"
+                />
               </div>
 
               <div>
@@ -1463,7 +1582,27 @@ if (!response.ok) {
           </div>
 
           {/* Conversation list */}
-          <div className="flex-1 overflow-y-auto px-3">
+          <div className="conversation-list flex-1 overflow-y-auto px-3">
+            <div className="conversation-view-switch mb-3 grid grid-cols-2 gap-1 rounded-xl p-1" role="tablist" aria-label="Conversation view">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={conversationView === "active"}
+                onClick={() => setConversationView("active")}
+                className="conversation-view-button"
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={conversationView === "archived"}
+                onClick={() => setConversationView("archived")}
+                className="conversation-view-button"
+              >
+                Archive
+              </button>
+            </div>
             <div className="mb-3 flex items-center justify-between px-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
                 Conversations
@@ -1495,19 +1634,19 @@ if (!response.ok) {
                   ];
 
                 return (
-                  <button
-                    type="button"
+                  <div
                     key={item.id}
-                    onClick={() =>
-                      selectConversation(item)
-                    }
                     className={`conversation-item group relative w-full rounded-2xl border p-3 text-left transition-all duration-300 ${
                       active
                         ? "border-cyan-500/20 bg-gradient-to-r from-cyan-500/[0.08] via-blue-500/[0.06] to-violet-500/[0.08] shadow-lg shadow-cyan-500/5"
                         : "border-transparent hover:border-white/[0.07] hover:bg-white/[0.025]"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void selectConversation(item)}
+                      className="conversation-main-button flex w-full items-center gap-3 text-left"
+                    >
                       <div
                         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
                           active
@@ -1533,8 +1672,20 @@ if (!response.ok) {
                             : "No messages yet"}
                         </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void setConversationArchived(item, !Boolean(item.archived));
+                      }}
+                      className="conversation-archive-button absolute right-2 top-2 rounded-lg p-1.5 opacity-0 transition"
+                      aria-label={item.archived ? "Unarchive conversation" : "Archive conversation"}
+                      title={item.archived ? "Unarchive" : "Archive"}
+                    >
+                      {item.archived ? <ChevronRight size={13} /> : <Archive size={13} />}
+                    </button>
+                  </div>
                 );
               })}
 
@@ -1549,13 +1700,11 @@ if (!response.ok) {
 
           {/* User profile */}
           <div className="border-t border-white/[0.07] p-4">
-            <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3">
-              <Avatar
-                name="R"
-                size="md"
-                gradient="from-violet-500 to-fuchsia-600"
-                status="online"
-              />
+              <div className="sidebar-profile flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3">
+              <div className="sidebar-profile-mark relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+                <UserRound size={18} strokeWidth={2} />
+                <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[var(--app-sidebar)] bg-emerald-400" />
+              </div>
 
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">
@@ -1603,6 +1752,9 @@ if (!response.ok) {
                 setMobileSidebar(true)
               }
               className="mr-3 rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white lg:hidden"
+              aria-label="Open conversation history"
+              aria-expanded={mobileSidebar}
+              aria-controls="conversation-sidebar"
             >
               <Menu size={20} />
             </button>
@@ -1662,6 +1814,8 @@ if (!response.ok) {
                 onClick={() =>
                   setSaved((value) => !value)
                 }
+                aria-label={saved ? "Remove saved conversation" : "Save conversation"}
+                aria-pressed={saved}
                 className={`rounded-xl p-2.5 transition ${
                   saved
                     ? "text-yellow-400"
@@ -1680,6 +1834,7 @@ if (!response.ok) {
                 type="button"
                 onClick={toggleFullscreen}
                 className="hidden rounded-xl p-2.5 text-slate-500 transition hover:bg-white/5 hover:text-white sm:block"
+                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
               >
                 {isFullscreen ? (
                   <Minimize2 size={17} />
@@ -1696,6 +1851,8 @@ if (!response.ok) {
                   )
                 }
                 className="hidden rounded-xl p-2.5 text-slate-500 transition hover:bg-white/5 hover:text-white xl:block"
+                aria-label={showDetails ? "Hide paper details" : "Show paper details"}
+                aria-expanded={showDetails}
               >
                 <MoreVertical size={17} />
               </button>
@@ -1712,6 +1869,88 @@ if (!response.ok) {
                     <div className="rounded-full border border-white/[0.07] bg-white/[0.025] px-4 py-1.5 text-[9px] uppercase tracking-[0.18em] text-slate-600 backdrop-blur-xl">
                       Today
                     </div>
+                  </div>
+
+                  <div className="premium-hero mb-6 overflow-hidden rounded-[28px] border border-white/[0.10] bg-[linear-gradient(135deg,#163c45,#1f5b58,#4c7770)] p-6 shadow-[0_24px_60px_rgba(8,30,35,0.38)] backdrop-blur-xl">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="max-w-2xl">
+                        <div className="premium-pill inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                          <Sparkles size={12} />
+                          AI Research Copilot
+                        </div>
+
+                        <h2 className="mt-4 text-2xl font-bold tracking-tight text-white md:text-4xl">
+                          Turn dense papers into clear,
+                          actionable insight.
+                        </h2>
+
+                        <p className="premium-hero-copy mt-3 max-w-xl text-sm leading-6">
+                          Ask follow-up questions, trace evidence to source passages,
+                          and move from reading to real understanding with a calmer,
+                          more guided research workflow.
+                        </p>
+                      </div>
+
+                      <div className="grid w-full max-w-md grid-cols-3 gap-3">
+                        {[
+                          { label: "Recall", value: "94%" },
+                          { label: "Speed", value: "2.1x" },
+                          { label: "Focus", value: "High" },
+                        ].map((metric) => (
+                          <div
+                            key={metric.label}
+                            className="rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-3 text-left shadow-[0_10px_30px_rgba(11,16,30,0.35)]"
+                          >
+                            <div className="premium-metric-label text-[9px] uppercase tracking-[0.18em]">
+                              {metric.label}
+                            </div>
+                            <div className="mt-2 text-xl font-bold text-white">
+                              {metric.value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-6 grid gap-4 md:grid-cols-3">
+                    {[
+                      {
+                        label: "Paper health",
+                        value: "97%",
+                        meta: "Indexed and ready",
+                        tone: "cyan",
+                      },
+                      {
+                        label: "Research depth",
+                        value: "High",
+                        meta: "Grounded retrieval",
+                        tone: "violet",
+                      },
+                      {
+                        label: "Workflow",
+                        value: "Live",
+                        meta: "Streaming answers",
+                        tone: "emerald",
+                      },
+                    ].map((stat) => (
+                      <div
+                        key={stat.label}
+                        className="workspace-stat-card rounded-3xl border border-white/[0.75] bg-white/[0.96] p-4 shadow-[0_14px_40px_rgba(8,11,20,0.18)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white"
+                      >
+                        <div className="workspace-stat-label text-[10px] font-semibold uppercase tracking-[0.2em]">
+                          {stat.label}
+                        </div>
+                        <div className="mt-3 flex items-end justify-between gap-2">
+                          <span className="workspace-stat-value text-2xl font-bold">
+                            {stat.value}
+                          </span>
+                          <span className="workspace-stat-meta rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[9px]">
+                            {stat.meta}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   {!conversation ||
@@ -1767,7 +2006,7 @@ if (!response.ok) {
               {/* Composer */}
               <div className="shrink-0 border-t border-white/[0.07] bg-[#080b14]/90 px-4 py-4 backdrop-blur-2xl lg:px-8">
                 <div className="mx-auto max-w-[900px]">
-                  <div className="relative rounded-3xl border border-white/[0.08] bg-white/[0.025] shadow-2xl shadow-black/20 transition-all duration-300 focus-within:border-violet-500/30 focus-within:bg-white/[0.035] focus-within:shadow-violet-500/5">
+                  <div className="relative rounded-3xl border border-white/[0.08] bg-white/[0.025] shadow-2xl shadow-black/20 transition-all duration-300 focus-within:border-emerald-500/30 focus-within:bg-white/[0.035] focus-within:shadow-emerald-500/5">
                     <textarea
                       ref={inputRef}
                       value={input}
@@ -1786,7 +2025,7 @@ if (!response.ok) {
                           sendMessage();
                         }
                       }}
-                      placeholder="Ask anything about this paper..."
+                      placeholder={conversation?.paper_id ? "Ask anything about this paper..." : "Ask anything — research or general questions..."}
                       rows={2}
                       disabled={loading}
                       className="min-h-[74px] w-full resize-none bg-transparent px-5 py-4 pr-32 text-sm leading-6 text-white outline-none placeholder:text-slate-600 disabled:opacity-50"
@@ -1797,7 +2036,7 @@ if (!response.ok) {
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         aria-label="Upload a PDF"
-                        className="rounded-xl p-2 text-slate-600 transition hover:bg-white/5 hover:text-white"
+                        className="composer-action-button rounded-xl p-2 transition"
                       >
                         <Paperclip size={16} />
                       </button>
@@ -1841,7 +2080,7 @@ if (!response.ok) {
                           loading ||
                           !conversation
                         }
-                        className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 text-white shadow-lg shadow-blue-500/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-blue-500/30 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:translate-y-0"
+                        className="composer-send-button flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:translate-y-0"
                       >
                         {loading ? (
                           <Loader2
@@ -1892,11 +2131,11 @@ if (!response.ok) {
             {/* ---------------------------------------------------------------- */}
 
             {showDetails && (
-              <aside className="hidden w-[300px] shrink-0 border-l border-white/[0.07] bg-[#080b14]/70 xl:block">
+              <aside className="paper-details-panel hidden w-[300px] shrink-0 border-l border-white/[0.07] bg-[#080b14]/70 xl:block">
                 <div className="h-full overflow-y-auto p-5">
-                  <div className="mb-5 flex items-center justify-between">
+                  <div className="paper-details-header mb-5 flex items-center justify-between border-b border-white/[0.07] pb-4">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                      Paper details
+                      Reading desk
                     </div>
 
                     <button
@@ -1905,33 +2144,43 @@ if (!response.ok) {
                         setShowDetails(false)
                       }
                       className="rounded-lg p-1 text-slate-600 hover:bg-white/5 hover:text-white"
+                      aria-label="Hide paper details"
                     >
                       <X size={14} />
                     </button>
                   </div>
 
                   {/* Paper card */}
-                  <div className="paper-details-card relative mb-5 overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-br from-cyan-500/[0.08] via-blue-500/[0.05] to-violet-500/[0.08] p-5">
-                    <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-cyan-500/10 blur-3xl" />
+                  <div className="paper-details-card mb-5 rounded-2xl border p-4">
+                    <div className="paper-details-kicker mb-3 flex items-center justify-between text-[9px] font-semibold uppercase">
+                      <span>Selected paper</span>
+                      <span className="paper-format-label rounded-md px-2 py-1">PDF</span>
+                    </div>
 
-                    <div className="relative">
-                      <div className="paper-details-icon mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-violet-600 shadow-lg shadow-blue-500/20">
-                        <FileText size={21} />
+                    <div className="flex items-start gap-3">
+                      <div className="paper-details-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+                        <FileText size={19} />
                       </div>
 
-                      <h2 className="paper-details-title text-sm font-semibold leading-5 text-white">
-                        {selectedPaper.title}
-                      </h2>
-
-                      <p className="paper-details-meta mt-1 text-[10px]">
-                        IIED · July 2026
-                      </p>
+                      <div className="min-w-0 pt-0.5">
+                        <h2 className="paper-details-title text-[13px] font-semibold leading-5">
+                          {selectedPaper.title}
+                        </h2>
+                        <p className="paper-details-meta mt-1 text-[10px]">
+                          IIED · July 2026
+                        </p>
+                      </div>
                     </div>
                   </div>
 
                   {/* Document stats */}
                   <div className="mb-6 grid grid-cols-2 gap-2">
-                    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowPdfViewer(true)}
+                      aria-label="Open paper PDF"
+                      className="paper-stat-card paper-stat-action rounded-2xl border p-4 text-left"
+                    >
                       <div className="text-xl font-bold text-cyan-400">
                         PDF
                       </div>
@@ -1939,9 +2188,9 @@ if (!response.ok) {
                       <div className="mt-1 text-[9px] uppercase tracking-wider text-slate-600">
                         Document
                       </div>
-                    </div>
+                    </button>
 
-                    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+                    <div className="paper-stat-card rounded-2xl border p-4">
                       <div className="text-xl font-bold text-violet-400">
                         128
                       </div>
@@ -1969,7 +2218,9 @@ if (!response.ok) {
                         <button
                           type="button"
                           key={topic}
-                          className="rounded-full border border-white/[0.07] bg-white/[0.025] px-3 py-1.5 text-[10px] text-slate-500 transition hover:border-cyan-500/20 hover:bg-cyan-500/[0.05] hover:text-cyan-300"
+                          onClick={() => void sendMessage(`Explain the paper's ${topic.toLowerCase()} in detail.`)}
+                          aria-label={`Ask about ${topic}`}
+                          className="paper-topic-button rounded-full border px-3 py-1.5 text-[10px] transition"
                         >
                           {topic}
                         </button>
@@ -1984,15 +2235,11 @@ if (!response.ok) {
                       Quick actions
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="paper-quick-actions space-y-2">
                       <ActionButton
                         variant="primary"
-                        className="w-full"
-                        onClick={() =>
-                          sendMessage(
-                            "Give me a concise summary of this research paper."
-                          )
-                        }
+                        className="paper-summary-action w-full"
+                        onClick={() => void generatePaperSummary()}
                       >
                         <Sparkles size={15} />
                         Generate summary
@@ -2000,7 +2247,7 @@ if (!response.ok) {
 
                       <ActionButton
                         variant="secondary"
-                        className="w-full"
+                        className="paper-sources-action w-full"
                         onClick={() =>
                           setShowSources(true)
                         }
@@ -2011,7 +2258,7 @@ if (!response.ok) {
 
                       <ActionButton
                         variant="ghost"
-                        className="w-full"
+                        className="paper-question-action w-full"
                         onClick={() =>
                           sendMessage(
                             "What is the main research problem addressed in this paper?"
@@ -2025,7 +2272,7 @@ if (!response.ok) {
                   </div>
 
                   {/* Backend status */}
-                  <div className="mt-8 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+                  <div className="backend-status-card mt-8 rounded-2xl border p-4">
                     <div className="flex items-center gap-3">
                       <div
                         className={`flex h-9 w-9 items-center justify-center rounded-xl ${
@@ -2041,17 +2288,27 @@ if (!response.ok) {
                         )}
                       </div>
 
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="text-xs font-medium text-slate-300">
                           Backend
                         </div>
 
                         <div className="text-[10px] text-slate-600">
                           {backendOnline
-                            ? "FastAPI connected"
+                            ? (aiProviderConfigured ? "FastAPI + AI connected" : "FastAPI connected · Offline assistant active")
                             : "Connection unavailable"}
                         </div>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void checkBackend()}
+                        className="backend-retry rounded-lg p-2 transition"
+                        aria-label="Retry backend connection"
+                        title="Retry backend connection"
+                      >
+                        <RefreshCw size={14} />
+                      </button>
                     </div>
                   </div>
                 </div>

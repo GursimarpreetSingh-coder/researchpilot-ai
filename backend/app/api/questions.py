@@ -71,6 +71,27 @@ def get_paper_pdf(
     )
 
 
+@router.get("/{paper_id}/summary")
+def get_paper_summary(paper_id: UUID, db: Session = Depends(get_db)):
+    paper = db.get(Paper, paper_id)
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found.")
+
+    from app.services.summary_service import generate_paper_summary
+
+    try:
+        summary = generate_paper_summary(db=db, paper_id=paper_id)
+        return {
+            "paper_id": str(paper_id),
+            "summary": summary.summary,
+            "key_contributions": summary.key_contributions,
+            "methodology": summary.methodology,
+            "limitations": summary.limitations,
+        }
+    except Exception as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
 @router.post("/{paper_id}/ask")
 def ask_paper(
     paper_id: UUID,

@@ -1,20 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ResearchPilot">
   <defs>
-    <linearGradient id="paper" x1="80" y1="60" x2="430" y2="430" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#d8c4ff"/>
-      <stop offset=".48" stop-color="#246bff"/>
-      <stop offset="1" stop-color="#5b16e8"/>
-    </linearGradient>
-    <linearGradient id="orbit" x1="60" y1="390" x2="450" y2="120" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#11e7ff"/>
-      <stop offset=".55" stop-color="#2674ff"/>
-      <stop offset="1" stop-color="#b44cff"/>
+    <linearGradient id="shell" x1="70" y1="40" x2="440" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#123f57"/>
+      <stop offset="1" stop-color="#081c2e"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="96" fill="#070d42"/>
-  <path d="M164 82h154l66 66v220c0 25-20 45-45 45H164c-25 0-45-20-45-45V127c0-25 20-45 45-45Z" fill="url(#paper)"/>
-  <path d="M318 82v73c0 16 13 29 29 29h37" fill="#65e7ff" opacity=".9"/>
-  <path d="M182 227h133M182 272h133M182 317h88" stroke="#fff" stroke-width="22" stroke-linecap="round" opacity=".92"/>
-  <path d="M42 355c77-111 195-164 342-128 56 14 96 43 104 77 11 48-52 89-153 100-119 13-248-9-293-49Z" fill="none" stroke="url(#orbit)" stroke-width="25" stroke-linecap="round"/>
-  <circle cx="411" cy="350" r="29" fill="url(#orbit)" stroke="#6bf2ff" stroke-width="5"/>
+  <rect x="8" y="8" width="496" height="496" rx="92" fill="#09283a"/>
+  <rect x="24" y="24" width="464" height="464" rx="82" fill="url(#shell)" stroke="#1c6573" stroke-width="5"/>
+  <path d="M166 122h142c70 0 112 43 112 104 0 68-49 107-125 107h-52v94h-77V122Zm77 68v75h61c28 0 45-13 45-38 0-24-17-37-45-37h-61Z" fill="#ffffff"/>
+  <path d="M196 216h86M196 259h72M196 302h74" fill="none" stroke="#081c2e" stroke-width="18" stroke-linecap="round"/>
+  <ellipse cx="276" cy="348" rx="238" ry="82" transform="rotate(-10 276 348)" fill="none" stroke="#63f2d1" stroke-width="18"/>
+  <circle cx="436" cy="315" r="24" fill="#78ead8" stroke="#d9fff8" stroke-width="5"/>
 </svg>
