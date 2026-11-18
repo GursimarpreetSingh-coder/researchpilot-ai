@@ -1209,9 +1209,10 @@ button:disabled {
   color: var(--app-accent) !important;
 }
 
-.research-app .conversation-item[class*="bg-gradient-to-r"] > div > div:first-child {
-  background: var(--app-accent) !important;
-  box-shadow: none !important;
+.research-app .conversation-item[class*="bg-gradient-to-r"] .conversation-main-button > div:first-child {
+  background: linear-gradient(135deg, #46b487, #268566) !important;
+  background-image: linear-gradient(135deg, #46b487, #268566) !important;
+  box-shadow: 0 8px 18px rgba(38, 133, 102, 0.2) !important;
   color: #ffffff !important;
 }
 
