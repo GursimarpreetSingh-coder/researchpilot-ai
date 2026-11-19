@@ -1,5 +1,7 @@
 # Deployment
 
+> **Free-tier note:** The free Render setup is suitable for a temporary demo, not permanent data storage. Free web services sleep after 15 minutes without traffic, and free Render Postgres expires after 30 days. The backend's uploaded PDFs are stored on an ephemeral filesystem and can disappear when the service restarts or redeploys. Use paid compute plus persistent storage before keeping irreplaceable uploads here.
+
 ## GitHub
 
 The repository contains two deployable applications:
@@ -11,7 +13,7 @@ Do not commit `.env` files, API keys, database credentials, `backend/storage/`, 
 
 ## Backend on Render
 
-The root `render.yaml` defines a FastAPI service and PostgreSQL database.
+The root `render.yaml` defines a FastAPI service and PostgreSQL database on Render's free plans.
 
 1. Create a Render Blueprint from this repository.
 2. Set `GEMINI_API_KEY` in the backend service environment.
@@ -23,7 +25,7 @@ The root `render.yaml` defines a FastAPI service and PostgreSQL database.
 alembic upgrade head
 ```
 
-`backend/storage/` is local disk storage and is ignored by Git. Render web-service disks are not a durable place for user PDFs, so production uploads should eventually move to S3, Cloudflare R2, Supabase Storage, or another object store.
+`backend/storage/` is local disk storage and is ignored by Git. On a free Render web service, this directory is ephemeral: uploaded PDFs may be lost after restarts, redeploys, or idle spin-down. For long-term use, move uploads to S3, Cloudflare R2, Supabase Storage, or attach a paid Render persistent disk.
 
 ## Frontend on Vercel
 

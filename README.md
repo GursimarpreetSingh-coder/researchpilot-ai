@@ -4,6 +4,8 @@
   <img src="frontend/public/researchpilot-logo.svg" alt="ResearchPilot AI" width="132" />
 </p>
 
+<p align="center"><a href="https://researchpilot-ai-roan.vercel.app/"><strong>Open the live frontend →</strong></a></p>
+
 <p align="center">
   <strong>A research workspace for reading papers, asking grounded questions, and comparing evidence.</strong>
   <br />
@@ -192,6 +194,8 @@ All routes are served by FastAPI. Open `/docs` for request schemas and interacti
 ## Deploy
 
 The repository includes a [Render Blueprint](render.yaml) for the FastAPI service and PostgreSQL database. A common deployment setup is:
+
+The checked-in Render blueprint uses free resources for a temporary demo. Render free web services sleep after 15 idle minutes, free Postgres expires after 30 days, and uploaded PDFs live on ephemeral disk. Upgrade the service and database and add persistent file storage before treating this as a durable personal workspace. The frontend currently has no authentication; anyone who can reach a connected backend would share the demo workspace.
 
 1. Deploy `backend/` and PostgreSQL using Render, Railway, or another Python host.
 2. Configure `DATABASE_URL`, `GEMINI_API_KEY`, and `CORS_ORIGINS` in the backend service. Set CORS to the deployed frontend origin.
