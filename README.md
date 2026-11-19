@@ -1,7 +1,7 @@
 # ResearchPilot AI
 
 <p align="center">
-  <img src="frontend/public/researchpilot-logo.svg" alt="ResearchPilot AI" width="132" />
+  <img src="frontend/public/researchpilot-logo.png" alt="ResearchPilot AI logo" width="320" />
 </p>
 
 <p align="center"><a href="https://researchpilot-ai-roan.vercel.app/"><strong>Open the live frontend →</strong></a></p>
@@ -20,14 +20,6 @@
   <a href="https://ai.google.dev/gemini-api/docs"><img src="https://img.shields.io/badge/AI-Gemini-4285f4" alt="Google Gemini" /></a>
 </p>
 
-## Workspace preview
-
-<p align="center">
-  <img src="docs/screenshots/researchpilot-workspace.png" alt="ResearchPilot desktop workspace with conversation history, paper assistant, and reading desk" width="1200" />
-</p>
-
-The screenshot shows a sample paper workspace. The percentage and count cards in the interface are illustrative UI values, not measured service metrics.
-
 ## What it does
 
 ResearchPilot connects paper reading with an AI-assisted research workflow:
@@ -41,12 +33,6 @@ ResearchPilot connects paper reading with an AI-assisted research workflow:
 - Ask general questions when a conversation has no linked paper; general answers are returned without paper citations.
 - Search, archive, restore, and delete conversations. Adjust theme, voice input, and composer preferences in settings.
 - Use voice dictation where the browser supports speech recognition.
-
-## Screenshots
-
-![ResearchPilot desktop workspace](docs/screenshots/researchpilot-workspace.png)
-
-This fresh screenshot uses a sample paper. The percentage and chunk cards are illustrative UI values, not measured service metrics. Browser speech recognition and PDF viewing depend on the browser and an uploaded paper.
 
 ## How it works
 
