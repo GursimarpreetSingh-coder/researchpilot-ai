@@ -17,7 +17,7 @@ The root `render.yaml` defines a FastAPI service and PostgreSQL database on Rend
 
 1. Create a Render Blueprint from this repository.
 2. Set `GEMINI_API_KEY` in the backend service environment.
-3. Set `CORS_ORIGINS` to the final Vercel URL, for example `https://your-app.vercel.app`.
+3. The Blueprint allows `https://researchpilot-ai-roan.vercel.app`. Update `CORS_ORIGINS` if the frontend domain changes.
 4. Deploy and copy the backend URL, for example `https://researchpilot-api.onrender.com`.
 5. Run migrations from the backend service shell if required:
 
@@ -38,7 +38,7 @@ NEXT_PUBLIC_API_URL=https://your-backend-host.example.com
 ```
 
 4. Deploy.
-5. Add the final Vercel URL to the backend `CORS_ORIGINS` variable and redeploy the backend.
+5. If the Vercel URL changes, update `CORS_ORIGINS` in Render and redeploy the backend.
 
 ## Local development
 
