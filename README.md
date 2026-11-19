@@ -1,199 +1,128 @@
 # ResearchPilot AI
 
 <p align="center">
-  <img src="frontend/public/researchpilot-logo.svg" alt="ResearchPilot AI logo" width="150" />
+  <img src="frontend/public/researchpilot-logo.svg" alt="ResearchPilot AI" width="132" />
 </p>
 
 <p align="center">
-  <strong>Turn research papers into grounded, searchable insights.</strong>
+  <strong>A research workspace for reading papers, asking grounded questions, and comparing evidence.</strong>
   <br />
-  Upload papers, ask questions, compare documents, and explore scientific literature with an AI research workspace.
+  Upload PDFs, explore source passages, and keep paper conversations organized in one place.
 </p>
 
 <p align="center">
-  <a href="https://github.com/GursimarpreetSingh-coder/researchpilot-ai"><img src="https://img.shields.io/badge/status-active-4f46e5" alt="Project status" /></a>
+  <a href="https://github.com/GursimarpreetSingh-coder/researchpilot-ai"><img src="https://img.shields.io/badge/status-active-16866f" alt="Project status: active" /></a>
   <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/frontend-Next.js-black" alt="Next.js" /></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/backend-FastAPI-009688" alt="FastAPI" /></a>
-  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/database-PostgreSQL-4169e1" alt="PostgreSQL" /></a>
+  <a href="https://www.sqlalchemy.org/"><img src="https://img.shields.io/badge/data-SQLAlchemy-dc7b32" alt="SQLAlchemy" /></a>
   <a href="https://ai.google.dev/gemini-api/docs"><img src="https://img.shields.io/badge/AI-Gemini-4285f4" alt="Google Gemini" /></a>
 </p>
 
-## Product Preview
+## Workspace preview
 
 <p align="center">
-  <img src="docs/screenshots/researchpilot-workspace.png" alt="ResearchPilot AI research workspace" width="1100" />
+  <img src="docs/screenshots/researchpilot-workspace.png" alt="ResearchPilot desktop workspace with conversation history, paper assistant, and reading desk" width="1200" />
 </p>
 
-ResearchPilot is designed as a calm, professional research environment rather than a generic chatbot. The workspace combines a paper-aware conversation, source references, PDF access, paper metadata, responsive navigation, and AI-assisted analysis in one interface.
+The screenshot shows a sample paper workspace. The percentage and count cards in the interface are illustrative UI values, not measured service metrics.
 
-## Why ResearchPilot?
+## What it does
 
-Research work is often split across PDF readers, search tabs, notes, citation managers, and chat tools. ResearchPilot brings the first research loop into one place:
+ResearchPilot connects paper reading with an AI-assisted research workflow:
 
-- Upload and process one or several PDF research papers.
-- Ask questions grounded in retrieved paper excerpts.
-- Compare ideas, methods, findings, and limitations across papers.
-- Receive page and chunk references for evidence-based answers.
-- Ask general questions outside the selected paper without fabricating citations.
-- Use voice input, responsive layouts, light/dark themes, and persistent conversations.
+- Upload up to eight PDF papers in one selection; each file can be up to 20 MB.
+- Extract text by page, split it into overlapping chunks, and create embeddings for retrieval.
+- Ask paper-specific questions and review the page and chunk references returned with an answer.
+- Compare several selected papers in one conversation.
+- Generate a structured summary with key findings, methods, and limitations.
+- Open the paper PDF and jump to a page cited by a source.
+- Ask general questions when a conversation has no linked paper; general answers are returned without paper citations.
+- Search, archive, restore, and delete conversations. Adjust theme, voice input, and composer preferences in settings.
+- Use voice dictation where the browser supports speech recognition.
 
-## Core Capabilities
+## Screenshots
 
-| Capability | What it does |
-| --- | --- |
-| PDF ingestion | Accepts multiple PDFs in one upload flow, extracts page text, chunks content, and creates embeddings. |
-| Grounded Q&A | Retrieves semantically relevant chunks and asks Gemini to answer with evidence. |
-| Multi-paper comparison | Associates several papers with one conversation and retrieves across the combined paper set. |
-| Source traceability | Returns paper title, page number, and chunk index for retrieved evidence. |
-| General AI mode | Routes questions outside the selected paper to general knowledge without fake paper citations. |
-| Paper reader | Opens the selected PDF and can jump to cited pages. |
-| Conversation workspace | Stores conversations and messages in PostgreSQL with clear-history controls. |
-| Voice input | Uses browser speech recognition and preserves final transcript segments without duplication. |
-| Research UI | Responsive workspace with sidebar history, paper details, quick actions, theme settings, and math rendering. |
+![ResearchPilot desktop workspace](docs/screenshots/researchpilot-workspace.png)
 
-## How It Works
+This fresh screenshot uses a sample paper. The percentage and chunk cards are illustrative UI values, not measured service metrics. Browser speech recognition and PDF viewing depend on the browser and an uploaded paper.
+
+## How it works
 
 ```mermaid
 flowchart LR
-    U[Researcher] --> UI[Next.js workspace]
-    UI -->|Upload PDF or PDFs| API[FastAPI API]
+    R[Researcher] --> UI[Next.js workspace]
+    UI -->|PDF files| API[FastAPI]
     API --> PDF[PDF text extraction]
     PDF --> CH[Page-aware chunking]
-    CH --> EMB[Gemini embeddings]
-    EMB --> DB[(PostgreSQL)]
-    UI -->|Ask question| API
-    API --> RET[Cosine similarity retrieval]
+    CH --> EMB[Gemini or local fallback embeddings]
+    EMB --> DB[(SQLite or PostgreSQL)]
+    UI -->|Question| API
+    API --> RET[Keyword and cosine-similarity retrieval]
     DB --> RET
-    RET --> CTX[Evidence context with paper/page/chunk labels]
-    CTX --> LLM[Gemini answer generation]
+    RET --> CTX[Paper excerpts with page references]
+    CTX --> LLM[Gemini, OpenAI-compatible provider, or local fallback]
     LLM --> UI
 ```
 
-### Multi-paper comparison flow
+### Paper question flow
 
-```mermaid
-flowchart TD
-    A[Select multiple research PDFs] --> B[Upload and validate files]
-    B --> C[Create one Paper record per file]
-    C --> D[Extract text and create chunks]
-    D --> E[Generate embeddings]
-    E --> F[Link papers to one conversation]
-    F --> G[Ask comparison question]
-    G --> H[Retrieve top chunks across all linked papers]
-    H --> I[Label evidence by paper and page]
-    I --> J[Generate similarities, differences, and synthesis]
-```
+1. The backend extracts text from each PDF page with `pypdf`.
+2. Text is cleaned and split into overlapping chunks while retaining page numbers.
+3. The backend stores chunks and their embeddings with the paper record.
+4. A question is embedded and matched against the selected paper chunks. Retrieval combines cosine similarity with a lightweight keyword score.
+5. The answer is generated from relevant excerpts and returned with paper, page, and chunk references. If there is no useful paper evidence, the assistant answers in general mode without inventing paper sources.
 
-### Question routing
+## Technology
 
-```mermaid
-flowchart TD
-    Q[User question] --> E[Create query embedding]
-    E --> S{Relevant paper evidence?}
-    S -->|Yes| R[Use retrieved excerpts]
-    R --> P[Answer with citations]
-    S -->|No| G[Use general AI knowledge]
-    G --> N[Answer without paper citations]
-```
+| Area | Tools |
+| --- | --- |
+| Web app | Next.js 16, React 19, TypeScript, Tailwind CSS 4 |
+| API | FastAPI, Uvicorn, Pydantic |
+| Persistence | SQLAlchemy; SQLite for a simple local setup and PostgreSQL for hosted deployments |
+| PDF processing | `pypdf`, page-aware chunking |
+| Text generation and embeddings | Google Gemini by default; optional OpenAI-compatible text generation; local fallback when no provider is configured |
+| Retrieval | JSON-stored embeddings, cosine similarity, and keyword scoring in Python |
 
-## Technical Methods
-
-### 1. PDF processing
-
-Each uploaded PDF is stored as a paper record. Text is extracted page by page, cleaned, and split into chunks while retaining page numbers. This keeps later answers traceable to the document location.
-
-### 2. Embedding-based retrieval
-
-The query and paper chunks are represented as vectors using the configured Gemini embedding model. ResearchPilot calculates cosine similarity in the service layer and selects the highest-scoring chunks for the answer context.
-
-For vectors $a$ and $b$, cosine similarity is:
-
-$$
-\operatorname{similarity}(a,b) = \frac{a \cdot b}{\|a\|\|b\|}
-$$
-
-### 3. Evidence-grounded generation
-
-Retrieved context is sent to Gemini with explicit instructions to:
-
-- Separate paper evidence from general knowledge.
-- Avoid invented facts and citations.
-- Mention page numbers when paper evidence is used.
-- Compare evidence across paper titles when multiple papers are linked.
-
-### 4. Relevance routing
-
-A similarity threshold decides whether the question is sufficiently related to the selected papers. Paper-related questions use RAG. Out-of-paper questions receive a useful general answer with an explicit note that the answer did not come from the paper.
-
-### 5. Conversation persistence
-
-Users, papers, conversations, messages, paper chunks, embeddings, and multi-paper associations are stored in PostgreSQL. Alembic migrations maintain the schema, including the `conversation_papers` join table used for comparisons.
-
-## Project Structure
-
-```text
-ResearchPilot-AI/
-├── backend/
-│   ├── app/
-│   │   ├── api/              # FastAPI routes: uploads, papers, chat, health
-│   │   ├── core/             # Environment-backed settings
-│   │   ├── db/               # SQLAlchemy base, session, model registry
-│   │   ├── models/           # User, paper, chunk, conversation, message models
-│   │   └── services/         # PDF, chunking, embeddings, retrieval, RAG, AI
-│   ├── alembic/              # Database migrations
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
-│   ├── app/                  # Next.js page, layout, global design system
-│   ├── components/           # Theme and reusable UI components
-│   ├── public/               # Logo and static assets
-│   ├── package.json
-│   └── .env.example
-├── docs/screenshots/         # Product screenshots used in documentation
-├── render.yaml               # Render backend and PostgreSQL blueprint
-├── DEPLOYMENT.md             # Deployment instructions
-└── README.md
-```
-
-## API Surface
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/health` | Check API and database health. |
-| `POST` | `/api/uploads/papers` | Upload and process one or more PDFs. |
-| `GET` | `/api/papers/{paper_id}` | Read paper metadata. |
-| `GET` | `/api/papers/{paper_id}/pdf` | Stream a stored PDF. |
-| `POST` | `/api/papers/{paper_id}/ask` | Ask a question about one paper. |
-| `POST` | `/api/conversations` | Create a single-paper or multi-paper conversation. |
-| `GET` | `/api/conversations?user_id=...` | List a user's conversations. |
-| `GET` | `/api/conversations/{conversation_id}` | Load messages and conversation state. |
-| `POST` | `/api/conversations/{conversation_id}/chat` | Run RAG/general AI chat. |
-| `POST` | `/api/conversations/clear?user_id=...` | Clear a user's conversation history. |
-| `DELETE` | `/api/conversations/{conversation_id}?user_id=...` | Delete one conversation. |
-
-## Run Locally
+## Run locally
 
 ### Requirements
 
-- Node.js 20 or newer
+- Node.js 20.9 or newer
 - Python 3.11 or newer
-- PostgreSQL
-- A Gemini API key with available quota
+- A Gemini API key for hosted AI answers and Gemini embeddings (optional; a local fallback is available)
 
-### Backend
+Open two terminals from the repository root.
+
+### 1. Start the backend
 
 ```powershell
 cd backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
-# Edit .env with DATABASE_URL and GEMINI_API_KEY
-alembic upgrade head
-.\venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### Frontend
+For a local SQLite database, edit `backend/.env` and set:
+
+```env
+DATABASE_URL=sqlite:///./researchpilot.db
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+```
+
+Add `GEMINI_API_KEY` to `.env` to use Gemini. The app creates missing database tables when it starts. To use PostgreSQL, set `DATABASE_URL` to its connection URL and apply the Alembic migrations before serving an existing database.
+
+Start the API from the `backend` directory:
+
+```powershell
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+The API health endpoint is [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health), and interactive API documentation is at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+
+### 2. Start the frontend
+
+In a second terminal from the repository root:
 
 ```powershell
 cd frontend
@@ -202,113 +131,112 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-## Configuration
-
-### Backend `.env`
-
-```env
-DATABASE_URL=postgresql://user:password@host:5432/researchpilot
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_FALLBACK_MODEL=
-GEMINI_EMBEDDING_MODEL=gemini-embedding-001
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-```
-
-### Frontend `.env.local`
+Open [http://localhost:3000](http://localhost:3000). The frontend `.env.local` should point to the backend:
 
 ```env
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 ```
 
-Never commit real environment files, API keys, database URLs, uploaded PDFs, or virtual environments.
+### Optional AI providers
 
-## Deployment
+Gemini is the default provider. The backend also accepts an OpenAI-compatible chat endpoint:
 
-The recommended production split is:
+```env
+OPENAI_API_KEY=your_api_key
+OPENAI_API_BASE=https://your-compatible-endpoint/v1
+OPENAI_MODEL=your-chat-model
+```
 
-- **Vercel** for `frontend/`.
-- **Render, Railway, or Fly.io** for `backend/`.
-- **Managed PostgreSQL** for application data.
-- **Object storage** such as S3, Cloudflare R2, or Supabase Storage for production PDFs.
+When no text-generation or embedding provider is configured, ResearchPilot can still respond using local fallback logic and locally generated hash embeddings. Those embeddings are a lightweight fallback and do not have the semantic quality of a hosted embedding model.
 
-### Vercel
+## Configuration
 
-Set the project root to `frontend` and configure:
+### Backend environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | SQLAlchemy database URL. Defaults to a local SQLite database in the backend working directory. |
+| `CORS_ORIGINS` | Comma-separated frontend origins allowed to call the API. |
+| `GEMINI_API_KEY` | Enables Gemini text generation and embeddings. |
+| `GEMINI_MODEL` | Gemini text-generation model name. |
+| `GEMINI_FALLBACK_MODEL` | Optional Gemini model used when the primary model is rate-limited. |
+| `GEMINI_EMBEDDING_MODEL` | Gemini model used for query embeddings. PDF indexing currently uses `gemini-embedding-001`; keep the models aligned and re-index papers if you change it. |
+| `OPENAI_API_KEY` | Optional key for OpenAI-compatible text generation. |
+| `OPENAI_API_BASE` | Optional base URL for an OpenAI-compatible endpoint. |
+| `OPENAI_MODEL` | Chat model name for the OpenAI-compatible endpoint. |
+
+Never commit `.env`, `.env.local`, API keys, database credentials, uploaded PDFs, local databases, or virtual environments.
+
+## API overview
+
+All routes are served by FastAPI. Open `/docs` for request schemas and interactive exploration.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Reports API, database, and AI-provider status. |
+| `POST` | `/api/uploads/papers` | Upload and index one or more PDF papers (`files`). |
+| `GET` | `/api/papers/{paper_id}` | Read paper metadata. |
+| `GET` | `/api/papers/{paper_id}/pdf` | Stream the stored PDF. |
+| `GET` | `/api/papers/{paper_id}/summary` | Generate or retrieve a structured summary. |
+| `POST` | `/api/papers/{paper_id}/ask` | Ask a question about one paper. |
+| `POST` | `/api/conversations` | Create a conversation, optionally linked to one or more papers. |
+| `GET` | `/api/conversations?user_id={id}` | List conversations for a user. |
+| `GET` | `/api/conversations/{conversation_id}` | Load a conversation and its messages. |
+| `POST` | `/api/conversations/{conversation_id}/messages` | Save a message without running AI chat. |
+| `POST` | `/api/conversations/{conversation_id}/chat` | Save a question and generate an answer. |
+| `POST` | `/api/conversations/{conversation_id}/archive?user_id={id}` | Archive a conversation. |
+| `POST` | `/api/conversations/{conversation_id}/unarchive?user_id={id}` | Restore an archived conversation. |
+| `POST` | `/api/conversations/clear?user_id={id}` | Delete a user's conversation history. |
+| `DELETE` | `/api/conversations/{conversation_id}?user_id={id}` | Delete one conversation. |
+
+## Deploy
+
+The repository includes a [Render Blueprint](render.yaml) for the FastAPI service and PostgreSQL database. A common deployment setup is:
+
+1. Deploy `backend/` and PostgreSQL using Render, Railway, or another Python host.
+2. Configure `DATABASE_URL`, `GEMINI_API_KEY`, and `CORS_ORIGINS` in the backend service. Set CORS to the deployed frontend origin.
+3. Apply the Alembic migrations to the hosted database.
+4. Deploy `frontend/` to Vercel and set its project root directory to `frontend`.
+5. Set `NEXT_PUBLIC_API_URL` to the deployed API URL and redeploy the frontend.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for provider-specific settings. Uploaded PDFs are stored under `backend/storage/papers`; this local directory is ignored by Git and is not durable storage on many hosted platforms. Use S3, Cloudflare R2, Supabase Storage, or equivalent persistent object storage before relying on production uploads.
+
+## Project layout
 
 ```text
-NEXT_PUBLIC_API_URL=https://your-backend.example.com
+.
+├── backend/
+│   ├── alembic/          # Database migrations
+│   ├── app/
+│   │   ├── api/          # Upload, paper, conversation, and health routes
+│   │   ├── core/         # Environment-backed settings
+│   │   ├── db/           # SQLAlchemy base, session, and model registry
+│   │   ├── models/       # Papers, chunks, users, conversations, and messages
+│   │   └── services/     # PDF parsing, embeddings, retrieval, summaries, and AI
+│   ├── requirements.txt
+│   └── .env.example
+├── docs/screenshots/     # README product screenshots
+├── frontend/
+│   ├── app/              # Next.js routes and design system
+│   ├── components/       # Theme provider and reusable UI
+│   ├── public/           # Logo and static assets
+│   └── package.json
+├── render.yaml           # Render service and database blueprint
+├── DEPLOYMENT.md         # Hosted deployment notes
+└── README.md
 ```
 
-### Render
+## Current scope and limitations
 
-The root `render.yaml` defines a FastAPI service and PostgreSQL database. Add these secret values in the Render dashboard:
-
-```text
-GEMINI_API_KEY=...
-CORS_ORIGINS=https://your-app.vercel.app
-```
-
-Then run the migrations:
-
-```bash
-alembic upgrade head
-```
-
-See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the full deployment sequence and the local-storage caveat.
-
-## Testing and Validation
-
-```powershell
-# Frontend production build
-cd frontend
-npm run build
-
-# Backend syntax check
-cd ..\backend
-.\venv\Scripts\python.exe -m compileall -q app alembic
-
-# API health check
-Invoke-RestMethod http://127.0.0.1:8000/api/health
-```
-
-The AI provider can return `429 RESOURCE_EXHAUSTED` when a Gemini free-tier quota is reached. The backend reports this as HTTP 429 with retry information. Configure billing, a different API key, or a fallback model with available quota for higher throughput.
-
-## Future Improvements
-
-### Near term
-
-- Add streaming token responses for faster perceived answers.
-- Add a comparison table view for methodology, datasets, metrics, and limitations.
-- Add paper-level filters for author, year, topic, venue, and citation metadata.
-- Improve retrieval with hybrid keyword plus vector search and reranking.
-- Add background jobs for large multi-paper uploads.
-
-### Production scale
-
-- Move PDF files from local disk to durable object storage.
-- Add authentication, team workspaces, and role-based access.
-- Add rate limiting, usage quotas, request tracing, and provider failover.
-- Add pgvector or a managed vector database for larger collections.
-- Add document-level OCR for scanned PDFs and tables/equations extraction.
-
-### Research intelligence
-
-- Build citation graphs and related-paper discovery.
-- Generate structured literature-review matrices.
-- Detect conflicting findings across papers.
-- Track claims, evidence, and citation provenance.
-- Add export to Markdown, DOCX, BibTeX, and research notes.
-
-## Responsible AI Notes
-
-ResearchPilot is an assistant, not a replacement for reading the original publication. Always verify important claims against the paper, especially when PDFs contain poor extraction, figures, tables, or mathematical notation. General-knowledge answers are intentionally marked as not originating from the selected paper.
+- The current workspace uses a fixed local demo user ID and does not implement sign-in or production-grade authorization. Do not expose a deployment to untrusted users as a multi-user service until authentication and access controls are added.
+- PDF files are saved on the backend's local filesystem. Hosted deployments need persistent object storage to retain uploads across restarts or redeploys.
+- Text extraction relies on embedded PDF text. Scanned pages require OCR, which is not currently included.
+- Similarity search runs in Python over stored JSON embeddings; a vector database or `pgvector` index is not currently used.
+- Gemini limits and quotas depend on the configured account and model. The backend returns provider errors when a request cannot be completed.
 
 ## License
 
-No license has been declared yet. Add a license file before distributing the project publicly or accepting external contributions.
+No license file is included yet. Unless a license is added, the repository is not explicitly licensed for reuse or redistribution.
 
 ## Author
 
